@@ -3,10 +3,8 @@ package game.mills;
 import org.jgrapht.Graphs;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleGraph;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -187,4 +185,24 @@ public class Board {
         }
         return false; // No valid moves found
     }
+
+    public ArrayList<int[]> getLegalMoves(Player player) {
+        ArrayList<int[]> legalMoves = new ArrayList<>();
+
+        // Iterate over each node in the board
+        for (Node node : nodes.values()) {
+            // Check if the node is occupied by the player
+            if (node.getOccupant() == player) {
+                // Check each neighbor for possible moves
+                for (Node neighbor : getNeighbours(node)) {
+                    if (!neighbor.isOccupied()) {
+                        // Add the move as a [fromID, toID] array to the list
+                        legalMoves.add(new int[] { node.getId(), neighbor.getId() });
+                    }
+                }
+            }
+        }
+        return legalMoves;
+    }
+
 }

@@ -1,7 +1,11 @@
 package game.mills;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import MinMax.AiPlayer;
 import gui.MillGameUI;
 
 /**
@@ -12,6 +16,8 @@ public class Game {
     private static Logger logger = Logger.getLogger(Game.class.getName());
     private Player humanPlayer1;
     private Player humanPlayer2;
+    private Player ai;
+    private AiPlayer aiPlayer;
     private Player currentPlayer;
     private Board board;
     private MoveValidator moveValidator;
@@ -20,7 +26,7 @@ public class Game {
     private int phase;
     private boolean millFormed = false;
     private MillGameUI ui;
-    private boolean isGameOver = false;
+    public boolean isGameOver = false;
 
     /**
      * Constructs a new game instance with two players.
@@ -31,7 +37,8 @@ public class Game {
      */
     public Game(Player p1, Player p2) {
         this.humanPlayer1 = p1;
-        this.humanPlayer2 = p2;
+        //this.humanPlayer2 = p2;
+        this.ai =p2;
         this.currentPlayer = p1;
         this.board = new Board();
         this.moveValidator = new MoveValidator(board);
@@ -44,9 +51,14 @@ public class Game {
      * Switches the player when the turn changes.
      */
     public void switchPlayer() {
-        currentPlayer = (currentPlayer == humanPlayer1) ? humanPlayer2 : humanPlayer1;
-
+        if (currentPlayer == humanPlayer1) {
+            currentPlayer = aiPlayer;
+            aiTurn(); // Let the AI take its turn automatically
+        } else {
+            currentPlayer = humanPlayer1;
+        }
     }
+
 
     /**
      * Places a piece on the board at the specified node ID.
@@ -110,7 +122,7 @@ public class Game {
     public void removeOpponentStone(int nodeID) {
         Node node = board.getNode(nodeID);
         Player opponent = node.getOccupant();
-        
+
         if (node.isOccupied() && opponent != currentPlayer) {
             if (board.checkMill(node, opponent)) {
                 boolean canRemoveMillStone = board.allOpponentStonesInMill(opponent);
@@ -125,12 +137,12 @@ public class Game {
                 // If stone is not part of a mill, allow removal
                 removeStone(node, opponent);
             }
-            
+
             // Checking phase and game over after removing a stone
             if (phase >= 2) { // Only checking game over when phase 2 has started
                 checkGameOver();
             }
-            
+
             // Switching the turn after removing the stone
             switchPlayer();
             if (ui != null) {
@@ -140,7 +152,7 @@ public class Game {
             throw new InvalidMove("Cannot remove this stone.");
         }
     }
-    
+
     /**
      * Helper method to remove a stone from the board and update the game state.
      *
@@ -200,7 +212,7 @@ public class Game {
      * Checks if the game should move to the next phase (from placing to moving).
      */
     private void checkPhase() {
-        if (humanPlayer1.getStonesToPlace() == 0 && humanPlayer2.getStonesToPlace() == 0) {
+        if (humanPlayer1.getStonesToPlace() == 0 && ai.getStonesToPlace() == 0) {
             phase = 2;
         }
     }
@@ -242,22 +254,22 @@ public class Game {
         if (phase >= 2) {
             // Check if any player has 2 or fewer stones
             if (humanPlayer1.getStonesOnBoard() <= 2) {
-                gameOver(humanPlayer2);
+                gameOver(ai);
                 return;
-            } else if (humanPlayer2.getStonesOnBoard() <= 2) {
+            } else if (ai.getStonesOnBoard() <= 2) {
                 gameOver(humanPlayer1);
                 return;
             }
         }
         // Check if any player has no valid moves left
         boolean p1HasMoves = board.hasValidMoves(humanPlayer1);
-        boolean p2HasMoves = board.hasValidMoves(humanPlayer2);
-    
+        boolean p2HasMoves = board.hasValidMoves(ai);
+
         if (!p1HasMoves && !p2HasMoves) {
             // If neither player has valid moves, it's a draw
             gameOver(null);
         } else if (!p1HasMoves) {
-            gameOver(humanPlayer2);
+            gameOver(ai);
         } else if (!p2HasMoves) {
             gameOver(humanPlayer1);
         }
@@ -286,5 +298,63 @@ public class Game {
     public void setUI(MillGameUI ui) {
         this.ui = ui;
     }
+
+    public void undoMove(int fromID, int toID) {
+        // 1. Reverse the move: Move the piece back to the previous position
+        board.movePiece(currentPlayer, toID, fromID);
+
+        // 2. Revert any changes in the player's stone count if necessary
+        if (currentPlayer == ai) {
+            ai.incrementStonesOnBoard();
+            ai.decrementStonesToPlace();
+        } else {
+            humanPlayer1.incrementStonesOnBoard();
+            humanPlayer1.decrementStonesToPlace();
+        }
+
+        // 3. Revert the player turn
+        switchPlayer();
+
+        // 4. Reset the mill status if a mill was formed and it’s being undone
+        millFormed = false;
+
+        // 5. Recheck the game state (e.g., for mills, phase, game over)
+        checkGameOver();
+    }
+
+    public void aiTurn() {
+        // Only let the AI play if it is its turn and the game is not over
+        if (currentPlayer == ai && !isGameOver) {
+            // Get the best move from the AI using the minimax algorithm
+            int[] bestMove = getBestMove(ai, aiPlayer);
+
+            // Execute the best move
+            makeMove(bestMove[0], bestMove[1]);
+        }
+    }
+
+    private int[] getBestMove(Player ai, AiPlayer aiPlayer) {
+        int bestScore = Integer.MIN_VALUE;
+        int[] bestMove = null;
+
+        List<int[]> legalMoves = new ArrayList<>(board.getLegalMoves(ai));
+
+        for (int[] move : legalMoves) {
+            int fromID = move[0];
+            int toID = move[1];
+
+            makeMove(fromID, toID);
+            int score = aiPlayer.minimax(this, 3, true);
+            undoMove(fromID, toID);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
+    }
+
 
 }

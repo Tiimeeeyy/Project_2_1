@@ -1,5 +1,6 @@
 package gui;
 
+import MinMax.AiPlayer;
 import game.mills.*;
 import javafx.application.Platform;
 import javafx.scene.Scene;
@@ -44,14 +45,20 @@ public class MillGameUI {
      */
     public void startNewGame() {
         selectedNode = null;
-        // Initialize players with name and stone color
-        HumanPlayer humanPlayer1 = new HumanPlayer("Player 1", Color.BLACK);
-        HumanPlayer humanPlayer2 = new HumanPlayer("Player 2", Color.WHITE);
 
-        // Initialize the game with the two players
-        this.game = new Game(humanPlayer1, humanPlayer2);
+        // Initialize the board
+        board = new Board();
+
+        // Initialize the game with temporary players
+        HumanPlayer humanPlayer1 = new HumanPlayer("Player 1", Color.BLACK);
+        HumanPlayer tempPlayer2 = new HumanPlayer("Player 2", Color.WHITE);
+
+        this.game = new Game(humanPlayer1, tempPlayer2);
         game.setUI(this);
-        board = game.getBoard();
+
+        // Now that `game` is initialized, create the AiPlayer and set it as the opponent
+        AiPlayer aiPlayer = new AiPlayer(board, game, 3, "AiPlayer", Color.WHITE);
+        this.game = new Game(humanPlayer1, aiPlayer);
 
         // Build the UI
         buildUI();
